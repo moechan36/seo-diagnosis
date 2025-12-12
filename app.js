@@ -286,7 +286,12 @@ result.innerHTML += `
        ▼ 円グラフ
   ============================================================ */
   drawScoreChart(totalScore);
+
+  /* ▼ 関連キーワード（サジェスト） */
+  renderSuggestSection(keyword);
 }
+
+
 
 
 /* ============================================================
@@ -501,4 +506,56 @@ function drawScoreChart(totalScore) {
   ctx.fillStyle = "#333";
   ctx.textAlign = "center";
   ctx.fillText(`${totalScore}点`, 100, 110);
+}
+
+
+/* ============================================================
+   ▼ 関連語サジェスト（Bing Suggest API）
+   ※ 既存処理は一切変更しない
+============================================================ */
+async function fetchBingSuggest(keyword) {
+  if (!keyword) return [];
+
+  try {
+    const res = await fetch(
+      `https://api.bing.com/osjson.aspx?query=${encodeURIComponent(keyword)}`
+    );
+    const data = await res.json();
+    return data[1] || [];
+  } catch {
+    return [];
+  }
+}
+
+function classifySuggestWords(words) {
+  return words.slice(0, 20).map(w => {
+    let type = "情報収集";
+
+    if (w.match(/相場|価格|値段/)) type = "価格調査";
+    else if (w.match(/方法|やり方|高く|コツ/)) type = "ノウハウ";
+    else if (w.match(/デメリット|比較|違い/)) type = "比較検討";
+    else if (w.match(/大阪|京都|東京|近く/)) type = "地域";
+
+    return { word: w, type };
+  });
+}
+
+async function renderSuggestSection(keyword) {
+  const result = document.getElementById("result");
+  const raw = await fetchBingSuggest(keyword);
+  if (!raw.length) return;
+
+  const list = classifySuggestWords(raw);
+
+  result.innerHTML += `
+    <h2 style="margin-top:40px;">関連キーワード（サジェスト）</h2>
+    <div class="card">
+      ${list.map(i => `
+        <p>
+          <strong>${i.word}</strong><br>
+          <span style="font-size:13px;color:#666;">${i.type}</span>
+        </p>
+      `).join("")}
+    </div>
+  `;
 }

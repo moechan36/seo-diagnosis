@@ -9,17 +9,17 @@ html, body {
 }
 
 /* --------------------------------------
-   メインコンテナ
+   メインコンテナ（中央カード）
 -------------------------------------- */
 .container {
   width: 100%;
-  max-width: 650px;        /* PC ではこの幅まで */
-  margin: 40px auto;       /* 中央揃え */
+  max-width: 650px;        /* PC ではこの幅で固定 */
+  margin: 40px auto;
   background: #fff;
   padding: 40px;
   border-radius: 16px;
   box-shadow: 0 3px 20px rgba(0,0,0,0.1);
-  box-sizing: border-box;  /* 幅ズレ防止 */
+  box-sizing: border-box;
 }
 
 /* --------------------------------------
@@ -56,13 +56,13 @@ label {
 
 input {
   width: 100%;
-  padding: 12px 14px;      /* ← 左右の余白を調整してズレ修正 */
+  padding: 12px 14px;   /* ← ズレ防止のため左右余白を追加 */
   border-radius: 8px;
   border: 1px solid #ccc;
   margin-top: 6px;
   margin-bottom: 20px;
   font-size: 15px;
-  box-sizing: border-box;  /* ← 幅ズレ完全防止 */
+  box-sizing: border-box;
 }
 
 button {
@@ -92,7 +92,7 @@ button:hover {
   box-sizing: border-box;
 }
 
-/* 優先度表示（右上に控えめ） */
+/* 優先度ラベル */
 .priority {
   float: right;
   font-size: 13px;
@@ -100,7 +100,7 @@ button:hover {
 }
 
 /* --------------------------------------
-   グラフ位置
+   グラフ配置
 -------------------------------------- */
 #scoreChart {
   display: block;
@@ -108,11 +108,13 @@ button:hover {
 }
 
 /* --------------------------------------
-   スマホ最適化
+   スマホ最適化（ここ超重要）
 -------------------------------------- */
 @media (max-width: 600px) {
 
+  /* ★この3行が今回の“ズレ修正の決定打” */
   .container {
+    width: calc(100% - 40px);   /* ← 左右に20pxずつ余白をつける */
     padding: 22px;
     margin: 20px auto;
     border-radius: 12px;
@@ -140,7 +142,7 @@ button:hover {
   }
 
   input {
-    padding: 12px 14px;  /* スマホでも均等になるよう固定 */
+    padding: 12px 14px;
     font-size: 15px;
   }
 
@@ -149,7 +151,6 @@ button:hover {
     font-size: 15px;
   }
 
-  /* グラフ縮小 */
   #scoreChart {
     width: 150px !important;
     height: 150px !important;

@@ -1,5 +1,5 @@
 /* --------------------------------------
-   ベース
+   全体ベース
 -------------------------------------- */
 html, body {
   margin: 0;
@@ -9,20 +9,21 @@ html, body {
 }
 
 /* --------------------------------------
-   コンテナ（中央カード）
+   メインコンテナ
 -------------------------------------- */
 .container {
   width: 100%;
-  max-width: 650px;        /* PC時の最大幅 */
+  max-width: 650px;        /* PC ではこの幅まで */
   margin: 40px auto;       /* 中央揃え */
   background: #fff;
   padding: 40px;
   border-radius: 16px;
   box-shadow: 0 3px 20px rgba(0,0,0,0.1);
+  box-sizing: border-box;  /* 幅ズレ防止 */
 }
 
 /* --------------------------------------
-   見出し
+   見出し類
 -------------------------------------- */
 h1 {
   text-align: center;
@@ -55,12 +56,13 @@ label {
 
 input {
   width: 100%;
-  padding: 12px;
+  padding: 12px 14px;      /* ← 左右の余白を調整してズレ修正 */
   border-radius: 8px;
   border: 1px solid #ccc;
   margin-top: 6px;
   margin-bottom: 20px;
   font-size: 15px;
+  box-sizing: border-box;  /* ← 幅ズレ完全防止 */
 }
 
 button {
@@ -79,7 +81,7 @@ button:hover {
 }
 
 /* --------------------------------------
-   カードUI
+   カードUI（診断結果）
 -------------------------------------- */
 .card {
   border: 1px solid #e5e5e5;
@@ -87,9 +89,10 @@ button:hover {
   border-radius: 8px;
   margin-bottom: 25px;
   background: #fff;
+  box-sizing: border-box;
 }
 
-/* 優先度（右上に控えめ表示） */
+/* 優先度表示（右上に控えめ） */
 .priority {
   float: right;
   font-size: 13px;
@@ -110,7 +113,7 @@ button:hover {
 @media (max-width: 600px) {
 
   .container {
-    padding: 20px;
+    padding: 22px;
     margin: 20px auto;
     border-radius: 12px;
   }
@@ -137,8 +140,8 @@ button:hover {
   }
 
   input {
+    padding: 12px 14px;  /* スマホでも均等になるよう固定 */
     font-size: 15px;
-    padding: 10px;
   }
 
   button {

@@ -54,7 +54,7 @@ function checkSEO(doc) {
   else if (description.length > 180) { descAdvice = "長すぎます。"; scoreDescription = 10; }
   else { descAdvice = "良好です。"; scoreDescription = 20; }
 
-  /* H1（推定機能あり） */
+  /* H1推定 */
   let h1Element = doc.querySelector("h1");
   let h1 = h1Element ? h1Element.innerText.trim() : "";
   let h1Count = doc.querySelectorAll("h1").length;
@@ -71,7 +71,7 @@ function checkSEO(doc) {
   else if (h1Count > 1) { h1Advice = "H1が複数あります。"; scoreH1 = 10; }
   else { h1Advice = "良好です。"; scoreH1 = 15; }
 
-  /* alt */
+  /* ALT */
   const images = [...doc.querySelectorAll("img")];
   const altMissing = images.filter(i => !i.getAttribute("alt")).length;
 
@@ -113,7 +113,8 @@ function checkSEO(doc) {
   let scoreOGP = ogImage !== "なし" ? 5 : 0;
   let ogAdvice = scoreOGP ? "良好です。" : "OGP画像がありません。";
 
-  /* 合計スコア */
+
+  /* 合計スコア（高度SEOはまだ加点しない） */
   const totalScore =
     scoreTitle +
     scoreDescription +
@@ -123,17 +124,13 @@ function checkSEO(doc) {
     scoreCanonical +
     scoreOGP;
 
-  /* 総括コメント：内部処理用 */
-  let reasons = [];
-  if (scoreTitle < 20) reasons.push("タイトルが最適ではありません。");
-  if (scoreDescription < 20) reasons.push("ディスクリプションが最適ではありません。");
-  if (scoreH1 < 15) reasons.push("H1 に問題があります。");
-  if (scoreAlt < 15) reasons.push("画像の alt が不足しています。");
-  if (scoreLD < 15)  reasons.push("構造化データがありません。");
-  if (scoreCanonical < 10) reasons.push("canonical がありません。");
-  if (scoreOGP < 5) reasons.push("OGP画像がありません。");
+  /* ▼ 高度SEOチェックの実行 ▼ */
+  const headingResult = checkHeadingStructure(doc);
+  const linkResult = checkInternalLinks(doc);
+  const textResult = checkTextLength(doc);
+  const indexResult = checkIndexStatus(doc);
 
-  /* ★ カードUIで出力 ＋ 優先度表示 */
+  /* ▼ 通常SEOの結果HTML ▼ */
   result.innerHTML = `
     <h2>診断結果</h2>
 
@@ -193,26 +190,57 @@ function checkSEO(doc) {
   `;
 
 
+  /* ▼ 高度SEOチェックのHTML追加 ▼ */
+  result.innerHTML += `
+    <h2 style="margin-top:40px;">高度SEOチェック</h2>
 
-  /* ★ 円グラフ描画（色分け対応） */
+    <div class="card">
+      <span class="priority">優先度：${priority(headingResult.score)}</span>
+      <h4>Hタグ構造</h4>
+      <p><strong>状態:</strong> ${headingResult.status}</p>
+      <p>${headingResult.message}</p>
+    </div>
+
+    <div class="card">
+      <span class="priority">優先度：${priority(linkResult.score)}</span>
+      <h4>内部リンク数</h4>
+      <p><strong>状態:</strong> ${linkResult.status}</p>
+      <p>${linkResult.message}</p>
+    </div>
+
+    <div class="card">
+      <span class="priority">優先度：${priority(textResult.score)}</span>
+      <h4>本文文字数</h4>
+      <p><strong>状態:</strong> ${textResult.status}</p>
+      <p>${textResult.message}</p>
+    </div>
+
+    <div class="card">
+      <span class="priority">優先度：${priority(indexResult.score)}</span>
+      <h4>noindex / nofollow</h4>
+      <p><strong>状態:</strong> ${indexResult.status}</p>
+      <p>${indexResult.message}</p>
+    </div>
+  `;
+
+
+
+  /* ▼ 円グラフ描画（色分け） ▼ */
   const canvas = document.getElementById("scoreChart");
   if (canvas) {
     const ctx = canvas.getContext("2d");
     const percentage = totalScore / 100;
 
-    // スコアに応じて色を変える
-    let graphColor = "#e74c3c"; // 赤
-    if (totalScore >= 80) graphColor = "#2ecc71";     // 緑
-    else if (totalScore >= 40) graphColor = "#f1c40f"; // 黄
+    let graphColor = "#e74c3c";
+    if (totalScore >= 80) graphColor = "#2ecc71";
+    else if (totalScore >= 40) graphColor = "#f1c40f";
 
-    // 背景グレー円
     ctx.beginPath();
     ctx.arc(100, 100, 80, 0, Math.PI * 2);
     ctx.strokeStyle = "#ddd";
     ctx.lineWidth = 18;
     ctx.stroke();
 
-    // スコア円
     ctx.beginPath();
     ctx.arc(100, 100, 80, -Math.PI / 2, Math.PI * 2 * percentage - Math.PI / 2);
     ctx.strokeStyle = graphColor;
@@ -226,11 +254,74 @@ function checkSEO(doc) {
   }
 }
 
-
-
-/* ★ 優先度判定関数 */
+/* 優先度判定 */
 function priority(score) {
   if (score === 0) return "高";
   if (score <= 10) return "中";
   return "低";
+}
+
+
+/* -------------------------
+   高度SEOチェック①：Hタグ構造
+------------------------- */
+function checkHeadingStructure(doc) {
+  const headings = [...doc.querySelectorAll("h1, h2, h3, h4, h5, h6")].map(h => h.tagName);
+  
+  if (headings.length <= 1) {
+    return { status: "改善", message: "見出し構造がほとんどありません。", score: 0 };
+  }
+
+  let ok = true;
+  for (let i = 0; i < headings.length - 1; i++) {
+    const current = Number(headings[i].substring(1));
+    const next = Number(headings[i+1].substring(1));
+    if (next - current > 1) ok = false;
+  }
+
+  if (ok) {
+    return { status: "良好", message: "見出し階層は適切です。", score: 15 };
+  } else {
+    return { status: "注意", message: "見出し階層に問題があります。", score: 7 };
+  }
+}
+
+
+/* -------------------------
+   高度SEOチェック②：内部リンク数
+------------------------- */
+function checkInternalLinks(doc) {
+  const links = [...doc.querySelectorAll("a")];
+  const count = links.length;
+
+  if (count === 0) return { status: "改善", message: "内部リンクがありません。", score: 0 };
+  if (count < 5) return { status: "注意", message: `内部リンク数が少なめです（${count}件）。`, score: 7 };
+  
+  return { status: "良好", message: `内部リンク数は十分です（${count}件）。`, score: 15 };
+}
+
+
+/* -------------------------
+   高度SEOチェック③：本文文字数
+------------------------- */
+function checkTextLength(doc) {
+  const bodyText = doc.body.innerText.replace(/\s+/g, "").length;
+
+  if (bodyText < 300) return { status: "改善", message: `本文が少なすぎます（${bodyText}文字）。`, score: 0 };
+  if (bodyText < 800) return { status: "注意", message: `本文量は少なめです（${bodyText}文字）。`, score: 7 };
+
+  return { status: "良好", message: `本文量は適切です（${bodyText}文字）。`, score: 15 };
+}
+
+
+/* -------------------------
+   高度SEOチェック④：noindex / nofollow
+------------------------- */
+function checkIndexStatus(doc) {
+  const robots = doc.querySelector('meta[name="robots"]')?.content || "";
+
+  if (robots.includes("noindex")) return { status: "改善", message: "noindexが設定されています。", score: 0 };
+  if (robots.includes("nofollow")) return { status: "注意", message: "nofollowが設定されています。", score: 7 };
+
+  return { status: "良好", message: "インデックスは正常です。", score: 15 };
 }

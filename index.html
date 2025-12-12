@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+
+  <!-- セキュリティ強化 -->
+  <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy"
+        content="
+          default-src 'self';
+          script-src 'self';
+          style-src 'self' 'unsafe-inline';
+          img-src 'self' data:;
+          connect-src 'self' https:;
+          frame-ancestors 'none';
+          form-action 'self';
+        ">
+
+  <title>SEO簡易診断ツール</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="container">
+    <h1>SEO 簡易診断ツール</h1>
+
+    <label for="urlInput">診断したいURLを入力してください：</label>
+    <input type="url" id="urlInput" placeholder="https://example.com" required>
+
+    <button id="checkBtn">診断する</button>
+
+    <!-- ★診断結果と円グラフを表示する領域 -->
+    <div id="result">
+      <canvas id="scoreChart" width="200" height="200"></canvas>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

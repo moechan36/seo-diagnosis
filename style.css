@@ -1,0 +1,80 @@
+body {
+  font-family: "Yu Gothic", sans-serif;
+  background: #f4f4f4;
+  margin: 0;
+  padding: 40px;
+  display: flex;
+  justify-content: center;
+}
+
+.container {
+  background: #fff;
+  padding: 30px 40px;
+  width: 450px;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 25px;
+  font-size: 24px;
+  color: #333;
+}
+
+label {
+  font-size: 14px;
+  margin-bottom: 8px;
+  display: block;
+  color: #444;
+}
+
+input {
+  width: 100%;
+  padding: 10px;
+  font-size: 15px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  background: #3a86ff;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+button:hover {
+  background: #2f6fd1;
+}
+
+#result {
+  margin-top: 25px;
+  font-size: 15px;
+  color: #333;
+}
+
+.card {
+  border: 1px solid #e5e5e5;
+  padding: 18px;
+  border-radius: 8px;
+  margin-bottom: 25px;
+  background: #fff;
+}
+.card h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 17px;
+}
+
+.priority {
+  float: right;
+  font-size: 13px;
+  color: #777;
+}

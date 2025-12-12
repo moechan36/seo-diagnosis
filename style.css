@@ -78,3 +78,53 @@ button:hover {
   font-size: 13px;
   color: #777;
 }
+
+
+/* ─────────────────────────
+   スマホ最適化
+   ───────────────────────── */
+@media (max-width: 600px) {
+
+  .container {
+    width: 100%;
+    padding: 20px;
+    border-radius: 12px;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  h2 {
+    font-size: 20px;
+  }
+
+  h3 {
+    font-size: 18px;
+  }
+
+  .card {
+    padding: 16px;
+    margin-bottom: 22px;
+  }
+
+  .card h4 {
+    font-size: 15.5px;
+  }
+
+  input {
+    font-size: 15px;
+    padding: 10px;
+  }
+
+  button {
+    padding: 12px;
+    font-size: 15px;
+  }
+
+  /* グラフを少し小さく */
+  #scoreChart {
+    width: 150px !important;
+    height: 150px !important;
+  }
+}

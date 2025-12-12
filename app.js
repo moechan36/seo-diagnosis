@@ -1,5 +1,9 @@
+/* ============================================================
+   ボタンクリック
+============================================================ */
 document.getElementById("checkBtn").addEventListener("click", async () => {
-  const url = document.getElementById("urlInput").value;
+  const url = document.getElementById("urlInput").value.trim();
+  const keyword = document.getElementById("keywordInput").value.trim();
   const result = document.getElementById("result");
 
   if (!url) {
@@ -9,7 +13,7 @@ document.getElementById("checkBtn").addEventListener("click", async () => {
 
   result.innerHTML = "<p>診断中… 少しお待ちください。</p>";
 
-  const proxy = "https://api.allorigins.win/raw?url=";
+  const proxy = "https://corsproxy.io/?";
 
   try {
     const response = await fetch(proxy + encodeURIComponent(url));
@@ -18,7 +22,7 @@ document.getElementById("checkBtn").addEventListener("click", async () => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
 
-    checkSEO(doc);
+    runFullSEOCheck(doc, keyword);
 
   } catch (error) {
     console.error(error);
@@ -27,33 +31,33 @@ document.getElementById("checkBtn").addEventListener("click", async () => {
 });
 
 
-
 /* ============================================================
-   SEO診断メイン処理
+   ▼ フルSEO診断メイン
 ============================================================ */
-function checkSEO(doc) {
+function runFullSEOCheck(doc, keyword) {
   const result = document.getElementById("result");
 
   /* -------------------------
      Title
   ------------------------- */
   const title = doc.querySelector("title")?.innerText.trim() || "なし";
-  let titleAdvice = "";
+
   let scoreTitle = 0;
+  let titleAdvice = "";
 
   if (title === "なし") titleAdvice = "タイトルがありません。";
-  else if (title.length < 30) { titleAdvice = "タイトルが短いです。30〜60文字が理想です。"; scoreTitle = 10; }
-  else if (title.length > 60) { titleAdvice = "タイトルが長すぎます。検索で途中で切れます。"; scoreTitle = 10; }
+  else if (title.length < 30) { titleAdvice = "短すぎます（30〜60文字推奨）。"; scoreTitle = 10; }
+  else if (title.length > 60) { titleAdvice = "長すぎます（途中で切れます）。"; scoreTitle = 10; }
   else { titleAdvice = "良好です。"; scoreTitle = 20; }
 
   /* -------------------------
      Description
   ------------------------- */
   const description =
-    doc.querySelector('meta[name="description"]')?.getAttribute("content") || "なし";
+    doc.querySelector('meta[name="description"]')?.content || "なし";
 
-  let descAdvice = "";
   let scoreDescription = 0;
+  let descAdvice = "";
 
   if (description === "なし") descAdvice = "description がありません。";
   else if (description.length < 80) { descAdvice = "短すぎます。"; scoreDescription = 10; }
@@ -63,18 +67,19 @@ function checkSEO(doc) {
   /* -------------------------
      H1
   ------------------------- */
-  let h1Element = doc.querySelector("h1");
-  let h1 = h1Element ? h1Element.innerText.trim() : "";
+  let h1El = doc.querySelector("h1");
+  let h1 = h1El ? h1El.innerText.trim() : "";
   let h1Count = doc.querySelectorAll("h1").length;
 
   if (!h1) {
-    const fallback = doc.querySelector("h2, h3, .title, .page-title");
-    if (fallback) h1 = fallback.innerText.trim() + "（推定）";
+    const fb = doc.querySelector("h2, h3, .title, .page-title");
+    if (fb) h1 = fb.innerText.trim() + "（推定）";
     else h1 = "（H1が検出されません）";
   }
 
-  let h1Advice = "";
   let scoreH1 = 0;
+  let h1Advice = "";
+
   if (h1Count === 0) h1Advice = "H1タグがありません。";
   else if (h1Count > 1) { h1Advice = "H1が複数あります。"; scoreH1 = 10; }
   else { h1Advice = "良好です。"; scoreH1 = 15; }
@@ -83,68 +88,66 @@ function checkSEO(doc) {
      ALT
   ------------------------- */
   const images = [...doc.querySelectorAll("img")];
-  const altMissing = images.filter(i => !i.getAttribute("alt")).length;
+  const altMissing = images.filter(i => !i.alt).length;
 
+  let scoreAlt = 0;
   const altAdvice =
-    altMissing === 0 ? "全ての画像に alt が設定されています。" :
-    `${altMissing}枚が alt 未設定です。`;
+    altMissing === 0
+      ? "全てに alt が設定されています。"
+      : `${altMissing}枚が alt 未設定です。`;
 
-  let scoreAlt = altMissing === 0 ? 15 :
-                 (altMissing <= images.length * 0.3 ? 7 : 0);
+  if (altMissing === 0) scoreAlt = 15;
+  else if (altMissing <= images.length * 0.3) scoreAlt = 7;
 
   /* -------------------------
      JSON-LD
   ------------------------- */
   let ldTypes = [];
-  const ldScripts = doc.querySelectorAll('script[type="application/ld+json"]');
-
-  ldScripts.forEach(s => {
+  doc.querySelectorAll('script[type="application/ld+json"]').forEach(s => {
     try {
       const json = JSON.parse(s.innerText);
       if (json["@type"]) ldTypes.push(json["@type"]);
-      if (Array.isArray(json))
+      if (Array.isArray(json)) {
         json.forEach(j => j["@type"] && ldTypes.push(j["@type"]));
+      }
     } catch {}
   });
-
   let scoreLD = ldTypes.length > 0 ? 15 : 0;
 
   /* -------------------------
      canonical
   ------------------------- */
   const canonical =
-    doc.querySelector('link[rel="canonical"]')?.getAttribute("href") || "なし";
+    doc.querySelector('link[rel="canonical"]')?.href || "なし";
 
   let scoreCanonical = canonical !== "なし" ? 10 : 0;
 
   /* -------------------------
      OGP
   ------------------------- */
-  const ogTitle = doc.querySelector('meta[property="og:title"]')?.content || "なし";
-  const ogDesc  = doc.querySelector('meta[property="og:description"]')?.content || "なし";
   const ogImage = doc.querySelector('meta[property="og:image"]')?.content || "なし";
-
   let scoreOGP = ogImage !== "なし" ? 5 : 0;
 
-  /* -------------------------
-     ▼ 高度SEOチェック（4項目）
-  ------------------------- */
+
+  /* ============================================================
+       ▼ 高度SEO（H構造・内部リンク・本文量・noindex）
+  ============================================================ */
   const headingResult = checkHeadingStructure(doc);
   const linkResult = checkInternalLinks(doc);
   const textResult = checkTextLength(doc);
   const indexResult = checkIndexStatus(doc);
 
-  /* -------------------------
-     ▼ 技術的SEO（Core Web Vitalsライト版）
-  ------------------------- */
+  /* ============================================================
+       ▼ 技術的SEO（Core Web Vitals ライト版）
+  ============================================================ */
   const imgSizeResult = checkImageSizeAttributes(doc);
   const lazyResult = checkLazyLoad(doc);
   const resourceResult = checkResourceCount(doc);
   const htmlSizeResult = checkHTMLSize(doc);
 
-  /* -------------------------
-     合計スコア（基本診断のみ）
-  ------------------------- */
+  /* ============================================================
+       ▼ 総合スコア（基本診断）
+  ============================================================ */
   const totalScore =
     scoreTitle +
     scoreDescription +
@@ -154,139 +157,61 @@ function checkSEO(doc) {
     scoreCanonical +
     scoreOGP;
 
+
   /* ============================================================
-     結果HTML（基本診断）
+       ▼ 出力HTML
   ============================================================ */
   result.innerHTML = `
     <h2>診断結果</h2>
-
     <h3>総合SEOスコア：${totalScore}点 / 100点</h3>
     <canvas id="scoreChart" width="200" height="200"></canvas>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(scoreTitle)}</span>
-      <h4>Title</h4>
-      <p><strong>内容:</strong> ${title}</p>
-      <p>${titleAdvice}</p>
-    </div>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(scoreDescription)}</span>
-      <h4>Description</h4>
-      <p><strong>内容:</strong> ${description}</p>
-      <p>${descAdvice}</p>
-    </div>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(scoreH1)}</span>
-      <h4>H1</h4>
-      <p><strong>内容:</strong> ${h1}</p>
-      <p>${h1Advice}</p>
-    </div>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(scoreAlt)}</span>
-      <h4>画像 ALT</h4>
-      <p><strong>未設定:</strong> ${altMissing}枚</p>
-      <p>${altAdvice}</p>
-    </div>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(scoreLD)}</span>
-      <h4>構造化データ（JSON-LD）</h4>
-      <p><strong>検出タイプ:</strong> ${ldTypes.length ? ldTypes.join(", ") : "なし"}</p>
-    </div>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(scoreCanonical)}</span>
-      <h4>canonical</h4>
-      <p><strong>内容:</strong> ${canonical}</p>
-    </div>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(scoreOGP)}</span>
-      <h4>OGP</h4>
-      <p><strong>og:title:</strong> ${ogTitle}</p>
-      <p><strong>og:description:</strong> ${ogDesc}</p>
-      <p><strong>og:image:</strong> ${ogImage}</p>
-    </div>
   `;
+
+  /* ▼ Title */
+  result.innerHTML += createCard("Title", `内容: ${title}`, titleAdvice, scoreTitle);
+
+  /* ▼ Description */
+  result.innerHTML += createCard("Description", `内容: ${description}`, descAdvice, scoreDescription);
+
+  /* ▼ H1 */
+  result.innerHTML += createCard("H1", `内容: ${h1}`, h1Advice, scoreH1);
+
+  /* ▼ ALT */
+  result.innerHTML += createCard("画像 ALT", `未設定: ${altMissing}枚`, altAdvice, scoreAlt);
+
+  /* ▼ JSON-LD */
+  result.innerHTML += createCard("構造化データ（JSON-LD）",
+    `検出タイプ: ${ldTypes.length ? ldTypes.join(", ") : "なし"}`, "", scoreLD);
+
+  /* ▼ canonical */
+  result.innerHTML += createCard("canonical", canonical, "", scoreCanonical);
+
+  /* ▼ OGP */
+  result.innerHTML += createCard("OGP（og:image）", ogImage, "", scoreOGP);
 
 
   /* ============================================================
-       高度SEOチェックセクション
+       ▼ 高度SEO
   ============================================================ */
-  result.innerHTML += `
-    <h2 style="margin-top:40px;">高度SEOチェック</h2>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(headingResult.score)}</span>
-      <h4>Hタグ構造</h4>
-      <p><strong>状態:</strong> ${headingResult.status}</p>
-      <p>${headingResult.message}</p>
-    </div>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(linkResult.score)}</span>
-      <h4>内部リンク数</h4>
-      <p><strong>状態:</strong> ${linkResult.status}</p>
-      <p>${linkResult.message}</p>
-    </div>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(textResult.score)}</span>
-      <h4>本文文字数</h4>
-      <p><strong>状態:</strong> ${textResult.status}</p>
-      <p>${textResult.message}</p>
-    </div>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(indexResult.score)}</span>
-      <h4>noindex / nofollow</h4>
-      <p><strong>状態:</strong> ${indexResult.status}</p>
-      <p>${indexResult.message}</p>
-    </div>
-  `;
+  result.innerHTML += `<h2 style="margin-top:40px;">高度SEOチェック</h2>`;
+  result.innerHTML += createCard("Hタグ構造", headingResult.status, headingResult.message, headingResult.score);
+  result.innerHTML += createCard("内部リンク数", linkResult.status, linkResult.message, linkResult.score);
+  result.innerHTML += createCard("本文量", textResult.status, textResult.message, textResult.score);
+  result.innerHTML += createCard("noindex / nofollow", indexResult.status, indexResult.message, indexResult.score);
 
 
   /* ============================================================
-      技術的SEO（Core Web Vitals ライト版）
+       ▼ 技術的SEO
   ============================================================ */
-  result.innerHTML += `
-    <h2 style="margin-top:40px;">技術的SEOチェック（Core Web Vitals）</h2>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(imgSizeResult.score)}</span>
-      <h4>画像サイズ属性（width/height）</h4>
-      <p><strong>状態:</strong> ${imgSizeResult.status}</p>
-      <p>${imgSizeResult.message}</p>
-    </div>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(lazyResult.score)}</span>
-      <h4>lazyload（画像遅延読み込み）</h4>
-      <p><strong>状態:</strong> ${lazyResult.status}</p>
-      <p>${lazyResult.message}</p>
-    </div>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(resourceResult.score)}</span>
-      <h4>CSS / JS リソース数</h4>
-      <p><strong>状態:</strong> ${resourceResult.status}</p>
-      <p>${resourceResult.message}</p>
-    </div>
-
-    <div class="card">
-      <span class="priority">優先度：${priority(htmlSizeResult.score)}</span>
-      <h4>ページ容量（HTML）</h4>
-      <p><strong>状態:</strong> ${htmlSizeResult.status}</p>
-      <p>${htmlSizeResult.message}</p>
-    </div>
-  `;
+  result.innerHTML += `<h2 style="margin-top:40px;">技術的SEOチェック</h2>`;
+  result.innerHTML += createCard("画像サイズ属性", imgSizeResult.status, imgSizeResult.message, imgSizeResult.score);
+  result.innerHTML += createCard("lazyload", lazyResult.status, lazyResult.message, lazyResult.score);
+  result.innerHTML += createCard("CSS / JS リソース数", resourceResult.status, resourceResult.message, resourceResult.score);
+  result.innerHTML += createCard("HTML容量", htmlSizeResult.status, htmlSizeResult.message, htmlSizeResult.score);
 
 
   /* ============================================================
-       AIコメント生成
+       ▼ AI総合コメント
   ============================================================ */
   const aiComment = generateAIComment({
     scoreTitle,
@@ -307,40 +232,80 @@ function checkSEO(doc) {
 
 
   /* ============================================================
-       円グラフ
+       ▼ 検索意図診断
   ============================================================ */
-  const canvas = document.getElementById("scoreChart");
-  if (canvas) {
-    const ctx = canvas.getContext("2d");
-    const percentage = totalScore / 100;
+  const intent = analyzeSearchIntent(keyword);
+  result.innerHTML += `
+    <h2 style="margin-top:40px;">検索意図診断</h2>
+    <div class="card">
+      <h4>検索意図</h4>
+      <p><strong>キーワード:</strong> ${keyword || "未入力"}</p>
+      <p><strong>分類:</strong> ${intent.type}</p>
+      <p>${intent.detail}</p>
+    </div>
+  `;
 
-    let graphColor = "#e74c3c";
-    if (totalScore >= 80) graphColor = "#2ecc71";
-    else if (totalScore >= 40) graphColor = "#f1c40f";
 
-    ctx.beginPath();
-    ctx.arc(100, 100, 80, 0, Math.PI * 2);
-    ctx.strokeStyle = "#ddd";
-    ctx.lineWidth = 18;
-    ctx.stroke();
+  /* ============================================================
+   ▼ キーワード抽出（改善版）
+============================================================ */
+const rawText = doc.body.innerText;
 
-    ctx.beginPath();
-    ctx.arc(100, 100, 80, -Math.PI / 2, Math.PI * 2 * percentage - Math.PI / 2);
-    ctx.strokeStyle = graphColor;
-    ctx.lineWidth = 18;
-    ctx.stroke();
+// 日本語・英語を含む単語抽出（句読点・記号除外）
+const cleanedText = rawText
+  .replace(/[\n\r]/g, " ")
+  .replace(/[0-9０-９]/g, "")   // 数字削除（kmなど残す場合は外す）
+  .replace(/[、。,.!！?？"“”'’・/()（）【】『』\[\]{}]/g, " ")
+  .replace(/\s+/g, " ")         // 連続スペース除去
+  .trim();
 
-    ctx.font = "22px sans-serif";
-    ctx.fillStyle = "#333";
-    ctx.textAlign = "center";
-    ctx.fillText(`${totalScore}点`, 100, 110);
-  }
+const words = cleanedText.split(" ").filter(w =>
+  w.length >= 2 &&            // 2文字未満は除外（: や . を防ぐ）
+  !/^[A-Za-z]{1}$/.test(w) && // 英字1文字も除外
+  w !== ":" &&
+  w !== "：" &&
+  w !== "const"               // JSコード断片除外
+);
+
+const freq = {};
+words.forEach(w => freq[w] = (freq[w] || 0) + 1);
+
+// 出現回数が多い順にトップ20
+const sortedWords = Object.entries(freq)
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 20);
+
+result.innerHTML += `
+  <h2 style="margin-top:40px;">主要キーワード（自動抽出）</h2>
+  <div class="card">
+    ${sortedWords.map(([w, c]) => `<p>${w} : ${c}回</p>`).join("")}
+  </div>
+`;
+
+  /* ============================================================
+       ▼ 円グラフ
+  ============================================================ */
+  drawScoreChart(totalScore);
 }
 
 
+/* ============================================================
+   ▼ カードUI
+============================================================ */
+function createCard(title, content, advice, score) {
+  return `
+    <div class="card">
+      <span class="priority">優先度：${priority(score)}</span>
+      <h4>${title}</h4>
+      <p><strong>内容:</strong> ${content}</p>
+      <p>${advice}</p>
+    </div>
+  `;
+}
+
 
 /* ============================================================
-   優先度判定
+   ▼ 優先度判定
 ============================================================ */
 function priority(score) {
   if (score === 0) return "高";
@@ -349,47 +314,45 @@ function priority(score) {
 }
 
 
-
 /* ============================================================
-   高度SEOチェック（4項目）
+   ▼ 高度SEO判定
 ============================================================ */
 function checkHeadingStructure(doc) {
-  const headings = [...doc.querySelectorAll("h1, h2, h3, h4, h5, h6")].map(h => h.tagName);
+  const hs = [...doc.querySelectorAll("h1, h2, h3, h4, h5, h6")].map(h => h.tagName);
 
-  if (headings.length <= 1) {
-    return { status: "改善", message: "見出し構造がほとんどありません。", score: 0 };
-  }
+  if (hs.length <= 1)
+    return { status: "改善", message: "見出し構造が少ないです。", score: 0 };
 
   let ok = true;
-  for (let i = 0; i < headings.length - 1; i++) {
-    const current = Number(headings[i].substring(1));
-    const next = Number(headings[i+1].substring(1));
-    if (next - current > 1) ok = false;
+  for (let i = 0; i < hs.length - 1; i++) {
+    const now = Number(hs[i][1]);
+    const next = Number(hs[i+1][1]);
+    if (next - now > 1) ok = false;
   }
 
-  if (ok) return { status: "良好", message: "見出し階層は適切です。", score: 15 };
-  else return { status: "注意", message: "見出し階層に問題があります。", score: 7 };
+  return ok
+    ? { status: "良好", message: "見出し階層は適切です。", score: 15 }
+    : { status: "注意", message: "見出し階層に飛びがあります。", score: 7 };
 }
 
 
 function checkInternalLinks(doc) {
-  const links = [...doc.querySelectorAll("a")];
-  const count = links.length;
+  const links = [...doc.querySelectorAll("a")].length;
 
-  if (count === 0) return { status: "改善", message: "内部リンクがありません。", score: 0 };
-  if (count < 5) return { status: "注意", message: `内部リンク数が少なめです（${count}件）。`, score: 7 };
+  if (links === 0) return { status: "改善", message: "内部リンクがありません。", score: 0 };
+  if (links < 5) return { status: "注意", message: `内部リンクが少ないです（${links}件）。`, score: 7 };
 
-  return { status: "良好", message: `内部リンク数は十分です（${count}件）。`, score: 15 };
+  return { status: "良好", message: `内部リンクは十分です（${links}件）。`, score: 15 };
 }
 
 
 function checkTextLength(doc) {
-  const bodyText = doc.body.innerText.replace(/\s+/g, "").length;
+  const len = doc.body.innerText.replace(/\s+/g, "").length;
 
-  if (bodyText < 300) return { status: "改善", message: `本文が少なすぎます（${bodyText}文字）。`, score: 0 };
-  if (bodyText < 800) return { status: "注意", message: `本文量は少なめです（${bodyText}文字）。`, score: 7 };
+  if (len < 300) return { status: "改善", message: `本文量が少なすぎます（${len}文字）。`, score: 0 };
+  if (len < 800) return { status: "注意", message: `本文量は少なめです（${len}文字）。`, score: 7 };
 
-  return { status: "良好", message: `本文量は適切です（${bodyText}文字）。`, score: 15 };
+  return { status: "良好", message: `本文量は十分です（${len}文字）。`, score: 15 };
 }
 
 
@@ -397,44 +360,43 @@ function checkIndexStatus(doc) {
   const robots = doc.querySelector('meta[name="robots"]')?.content || "";
 
   if (robots.includes("noindex"))
-    return { status: "改善", message: "noindexが設定されています。", score: 0 };
+    return { status: "改善", message: "noindex が設定されています。", score: 0 };
 
   if (robots.includes("nofollow"))
-    return { status: "注意", message: "nofollowが設定されています。", score: 7 };
+    return { status: "注意", message: "nofollow が設定されています。", score: 7 };
 
   return { status: "良好", message: "インデックスは正常です。", score: 15 };
 }
 
 
-
 /* ============================================================
-   技術的SEOチェック（Core Web Vitals ライト版）
+   ▼ 技術的SEO
 ============================================================ */
 function checkImageSizeAttributes(doc) {
   const imgs = [...doc.querySelectorAll("img")];
-  const missing = imgs.filter(img => !img.getAttribute("width") || !img.getAttribute("height")).length;
+  const missing = imgs.filter(img => !img.width || !img.height).length;
 
-  if (missing === 0) {
-    return { status: "良好", message: "全ての画像に width/height が設定されています。", score: 15 };
-  } else if (missing <= imgs.length * 0.3) {
-    return { status: "注意", message: `${missing}枚の画像に size 属性が不足しています。`, score: 7 };
-  } else {
-    return { status: "改善", message: `${missing}枚の画像に width/height が設定されていません。`, score: 0 };
-  }
+  if (missing === 0)
+    return { status: "良好", message: "全画像に width/height があります。", score: 15 };
+
+  if (missing <= imgs.length * 0.3)
+    return { status: "注意", message: `${missing}枚の画像にサイズ属性が不足。`, score: 7 };
+
+  return { status: "改善", message: `${missing}枚の画像に size 属性なし。`, score: 0 };
 }
 
 
 function checkLazyLoad(doc) {
   const imgs = [...doc.querySelectorAll("img")];
-  const lazy = imgs.filter(img => img.getAttribute("loading") === "lazy").length;
+  const lazy = imgs.filter(i => i.loading === "lazy").length;
 
-  if (lazy === 0) {
+  if (lazy === 0)
     return { status: "改善", message: "lazyload が設定されていません。", score: 0 };
-  } else if (lazy < imgs.length * 0.5) {
-    return { status: "注意", message: `lazyload 設定が一部のみです（${lazy}枚）。`, score: 7 };
-  } else {
-    return { status: "良好", message: `lazyload が適切に設定されています（${lazy}枚）。`, score: 15 };
-  }
+
+  if (lazy < imgs.length * 0.5)
+    return { status: "注意", message: `lazyload が一部のみ（${lazy}枚）。`, score: 7 };
+
+  return { status: "良好", message: "lazyload が適切です。", score: 15 };
 }
 
 
@@ -442,52 +404,101 @@ function checkResourceCount(doc) {
   const cssCount = doc.querySelectorAll('link[rel="stylesheet"]').length;
   const jsCount = doc.querySelectorAll("script[src]").length;
 
+  const total = cssCount + jsCount;
   let score = 15;
-  let status = "良好";
-  let message = `CSS: ${cssCount}個 / JS: ${jsCount}個`;
+  let msg = `CSS: ${cssCount} / JS: ${jsCount}`;
 
-  if (cssCount + jsCount > 20) {
-    score = 0;
-    status = "改善";
-    message += " → リソース数が多すぎます。";
-  } else if (cssCount + jsCount > 10) {
-    score = 7;
-    status = "注意";
-    message += " → リソース数がやや多めです。";
-  }
+  if (total > 20) { score = 0; msg += " → 多すぎです。"; }
+  else if (total > 10) { score = 7; msg += " → やや多め。"; }
 
-  return { status, message, score };
+  return { status: score === 15 ? "良好" : score === 7 ? "注意" : "改善", message: msg, score };
 }
 
 
 function checkHTMLSize(doc) {
-  const htmlText = doc.documentElement.outerHTML;
-  const sizeKB = Math.round(new Blob([htmlText]).size / 1024);
+  const html = doc.documentElement.outerHTML;
+  const size = new Blob([html]).size / 1024;
 
-  if (sizeKB < 100) {
-    return { status: "良好", message: `ページサイズ：${sizeKB}KB（軽量です）`, score: 15 };
-  } else if (sizeKB < 300) {
-    return { status: "注意", message: `ページサイズ：${sizeKB}KB（少し重めです）`, score: 7 };
-  } else {
-    return { status: "改善", message: `ページサイズ：${sizeKB}KB（重すぎます）`, score: 0 };
-  }
+  if (size < 100)
+    return { status: "良好", message: `ページサイズ：${Math.round(size)} KB`, score: 15 };
+
+  if (size < 300)
+    return { status: "注意", message: `ページサイズ：${Math.round(size)} KB（少し重い）`, score: 7 };
+
+  return { status: "改善", message: `ページサイズ：${Math.round(size)} KB（重い）`, score: 0 };
 }
 
 
+/* ============================================================
+   ▼ 検索意図診断
+============================================================ */
+function analyzeSearchIntent(keyword) {
+  if (!keyword) return { type: "未入力", detail: "キーワードが入力されていません。" };
+
+  const k = keyword.toLowerCase();
+
+  if (k.includes("とは") || k.includes("意味") || k.includes("方法") || k.includes("やり方") || k.includes("相場"))
+    return { type: "Know（知りたい）", detail: "情報収集目的の検索意図です。" };
+
+  if (k.includes("予約") || k.includes("申込み") || k.includes("査定") || k.includes("問い合わせ"))
+    return { type: "Do（行動したい）", detail: "行動を目的とした検索意図です。" };
+
+  if (k.includes("店舗") || k.includes("アクセス") || k.includes("営業時間"))
+    return { type: "Go（場所探し）", detail: "場所やアクセスを探す意図です。" };
+
+  if (k.includes("購入") || k.includes("買う") || k.includes("料金") || k.includes("値段"))
+    return { type: "Buy（購入したい）", detail: "購入意図が強い検索です。" };
+
+  return { type: "Know（知りたい）", detail: "一般的な情報収集型の検索意図です。" };
+}
+
 
 /* ============================================================
-   AIによる総合コメント
+   ▼ AI総合コメント
 ============================================================ */
 function generateAIComment(r) {
-  let c = "総合的に見ると、";
+  let c = "総合的に見て、";
 
   c += r.scoreTitle < 15 ? "タイトルには改善の余地があります。" : "タイトルは適切です。";
-  c += r.scoreDescription < 15 ? " メタディスクリプションも最適化すると良いでしょう。" : " 説明文は良好です。";
-  c += r.scoreH1 < 15 ? " H1タグに改善ポイントがあります。" : " H1は適切に設定されています。";
-  c += r.scoreAlt < 15 ? " 画像ALTが不足しています。" : "";
-  c += r.linkScore < 15 ? " 内部リンク数は少なめです。" : " 内部リンクは十分です。";
-  c += r.textScore < 15 ? " 本文量はやや少なめです。" : " 本文量は適切です。";
+  c += r.scoreDescription < 15 ? " descriptionを最適化すると良いでしょう。" : " descriptionは良好です。";
+  c += r.scoreH1 < 15 ? " H1タグに改善の余地があります。" : " H1は適切に設定されています。";
+  c += r.scoreAlt < 15 ? " ALT不足があります。" : "";
+  c += r.linkScore < 15 ? " 内部リンクが不足しています。" : " 内部リンクは適切です。";
+  c += r.textScore < 15 ? " 本文量は少なめです。" : " 本文量は十分です。";
   c += r.indexScore < 15 ? " インデックス設定に注意が必要です。" : "";
 
-  return c + " 全体としてSEOの基礎は整っています。";
+  return c + " 全体としてSEO基礎は整っています。";
+}
+
+
+/* ============================================================
+   ▼ 円グラフ
+============================================================ */
+function drawScoreChart(totalScore) {
+  const canvas = document.getElementById("scoreChart");
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  const percentage = totalScore / 100;
+
+  let color = "#e74c3c";
+  if (totalScore >= 80) color = "#2ecc71";
+  else if (totalScore >= 40) color = "#f1c40f";
+
+  ctx.beginPath();
+  ctx.arc(100, 100, 80, 0, Math.PI * 2);
+  ctx.strokeStyle = "#ddd";
+  ctx.lineWidth = 18;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(100, 100, 80, -Math.PI / 2, Math.PI * 2 * percentage - Math.PI / 2);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 18;
+  ctx.stroke();
+
+  ctx.font = "22px sans-serif";
+  ctx.fillStyle = "#333";
+  ctx.textAlign = "center";
+  ctx.fillText(`${totalScore}点`, 100, 110);
 }
